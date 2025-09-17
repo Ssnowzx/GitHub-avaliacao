@@ -1,6 +1,10 @@
 import { GoogleGenAI } from "@google/genai";
 import { PROMPT_TEMPLATE, README_PROMPT_TEMPLATE } from "../constants";
 import { Language } from "../translations";
+import {
+  getFullGitHubProfile,
+  GitHubProfileData,
+} from "./githubProfileService";
 
 const apiKey = process.env.GEMINI_API_KEY;
 if (!apiKey) {
@@ -71,11 +75,45 @@ const callGeminiWithTimeout = (
 
 const API_TIMEOUT = 60000; // 60 seconds
 
+function profileDataToText(profile: GitHubProfileData): string {
+  let text = `\n---\nPROFILE DATA:\n`;
+  text += `Username: ${profile.username}\n`;
+  if (profile.name) text += `Name: ${profile.name}\n`;
+  if (profile.bio) text += `Bio: ${profile.bio}\n`;
+  if (profile.blog) text += `Blog: ${profile.blog}\n`;
+  if (profile.location) text += `Location: ${profile.location}\n`;
+  if (profile.email) text += `Email: ${profile.email}\n`;
+  text += `Public Repos: ${profile.public_repos}\n`;
+  text += `Pinned Repos:\n`;
+  if (profile.pinned_repos.length === 0) {
+    text += `  (none)\n`;
+  } else {
+    profile.pinned_repos.forEach((repo, i) => {
+      text += `  - ${repo.name}\n`;
+      if (repo.description) text += `    Description: ${repo.description}\n`;
+      if (repo.language) text += `    Language: ${repo.language}\n`;
+      if (repo.license) text += `    License: ${repo.license}\n`;
+      text += `    Has README: ${repo.hasReadme ? "yes" : "no"}\n`;
+      text += `    Has Workflow: ${repo.hasWorkflow ? "yes" : "no"}\n`;
+      if (repo.topics.length) text += `    Topics: ${repo.topics.join(", ")}\n`;
+    });
+  }
+  text += `---\n`;
+  return text;
+}
+
 export const analyzeGitHubProfile = async (
   githubUrl: string,
   lang: Language
 ): Promise<string> => {
-  const fullPrompt = PROMPT_TEMPLATE(githubUrl, lang);
+  // Extrai username da URL
+  const username = githubUrl.split("github.com/")[1]?.replace("/", "");
+  if (!username) throw new Error("URL inválida para perfil do GitHub");
+  // Busca dados reais do perfil
+  const profileData = await getFullGitHubProfile(username);
+  const profileText = profileDataToText(profileData);
+  // Monta prompt incluindo dados reais
+  const fullPrompt = PROMPT_TEMPLATE(githubUrl, lang) + "\n" + profileText;
   return callGeminiWithTimeout(fullPrompt, API_TIMEOUT);
 };
 
