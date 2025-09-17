@@ -1,0 +1,5 @@
+{
+  "name": "GitHub Profile Analyzer",
+  "description": "An AI-powered tool that acts as a senior tech recruiter to provide a detailed analysis and actionable feedback on a GitHub profile.",
+  "requestFramePermissions": []
+}
